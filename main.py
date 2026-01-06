@@ -108,9 +108,9 @@ def run_news_agent(request):
         ]
         
         message = Mail(
-            from_email='christopher.t.perry2@gmail.com',
+            from_email='source-email@gmail.com',
             to_emails=recipient_list,
-            subject='Weekly AI News Pulse (Gemini 3)',
+            subject='Weekly AI News Pulse (Gemini)',
             html_content=f"<h3>Weekly News Summary</h3>{news_summary}"
         )
 
