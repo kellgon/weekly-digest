@@ -14,11 +14,10 @@ log_client.setup_logging()
 
 # 1. Define the AI Agent with Search capabilities
 logging.info("Step 1: Agent Started.")
-
 # Initialize Vertex AI
 PROJECT_ID = os.environ.get("GCP_PROJECT")
-client = genai.Client(vertexai=True, project=PROJECT_ID, location="us-central1")
-
+#client = genai.Client(vertexai=True, project=PROJECT_ID, location="us-central1")
+client = genai.Client(vertexai=True, project=PROJECT_ID, location="global")
 
 def get_secret(secret_id):
     client = secretmanager.SecretManagerServiceClient()
@@ -35,9 +34,7 @@ def run_news_agent(request):
             google_search=types.GoogleSearch()
         )
         
-        logging.info("Step 3: Calling Gemini 2.5 (This can take 60+ seconds).")
-        
-        #model = GenerativeModel("gemini-3-pro-preview")
+        logging.info("Step 3: Calling Gemini 3 Flash first, 2.5 as fallback (This can take 60+ seconds).")
 
         prompt = """
             Role: Senior Strategic Intelligence Analyst for Google Cloud.
@@ -69,16 +66,31 @@ def run_news_agent(request):
                 3 - Tone: Professional, objective, and high-density.
         """
 
-        response = client.models.generate_content(
-            model="gemini-3-pro-preview",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[search_tool]
+        try:
+            response = client.models.generate_content(
+                model="gemini-3-flash-preview", 
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    tools=[search_tool],
+                    # 'thinking_level' MUST be inside 'thinking_config'
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="medium" # Supported by Gemini 3 Flash
+                    )
+                )
             )
-        )
+        except Exception as e:
+            if "404" in str(e):
+                logging.warning("Gemini 3 not found. Falling back to gemini-2.5-flash.")
+                # 2.5 Flash does NOT support thinking_config, so we simplify the config
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(tools=[search_tool])
+                )
+            else:
+                raise e
         
-        # Verify if the response contains text (Grounding can sometimes return empty 
-        # if the search fails, so we handle that)
+        # Verify if the response contains text 
         if not response.text:
             news_summary = "No news found for the given criteria."
         else:
@@ -91,8 +103,8 @@ def run_news_agent(request):
         
         # Define your list of recipients here
         recipient_list = [
-            'your-email@gmail.com',
-            'second-email@gmail.com'
+            'target-email1@gmail.com',
+            'target-email2@gmail.com'
         ]
         
         message = Mail(
