@@ -1,0 +1,6 @@
+functions-framework==3.*
+google-cloud-aiplatform>=1.130.0
+google-genai
+google-cloud-secret-manager
+google-cloud-logging
+sendgrid
